@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use std::{f32::consts::PI, fs::File, io::{BufRead, BufReader, Read}, path::{Path, PathBuf}};
 
 use bevy::{math::{Quat, Vec3}};
@@ -22,9 +20,6 @@ pub struct ColmapImage {
     pub image_path: PathBuf,
     pub camera_orientation: Quat,
     pub camera_pos: Vec3,
-    pub tx: f64,
-    pub ty: f64,
-    pub tz: f64,
 }
 
 #[derive(Debug)]
@@ -97,7 +92,7 @@ impl ColmapScene {
             let mut img_header_buf: [u8; 64] = [123; 64];
             img_reader.read_exact(&mut img_header_buf).unwrap();
 
-            let image_id: u32 = u32::from_le_bytes(*(img_header_buf[0..4].as_array().unwrap()));
+            let _image_id: u32 = u32::from_le_bytes(*(img_header_buf[0..4].as_array().unwrap()));
             let qw: f32 = f64::from_le_bytes(*(img_header_buf[4..12].as_array().unwrap())) as f32;
             let qx: f32 = f64::from_le_bytes(*(img_header_buf[12..20].as_array().unwrap())) as f32;
             let qy: f32 = f64::from_le_bytes(*(img_header_buf[20..28].as_array().unwrap())) as f32;
@@ -118,7 +113,7 @@ impl ColmapScene {
             let num_points: u64 = u64::from_le_bytes(*(num_points_buf[0..8].as_array().unwrap()));
 
             let mut phony_buf: Vec<u8> = vec![0u8; (num_points as usize)*24];
-            img_reader.read_exact(&mut phony_buf);
+            img_reader.read_exact(&mut phony_buf).unwrap();
 
             let r_w2c: Quat = Quat::from_xyzw(qx, qy, qz, qw);
             let r_c2w: Quat = r_w2c.conjugate();
@@ -126,16 +121,13 @@ impl ColmapScene {
             let cam_pos: Vec3 = -(r_c2w * t);
 
             let camera_orientation: Quat = flip * r_c2w * flip.conjugate();
-            let mut camera_pos: Vec3 = flip * cam_pos;
+            let camera_pos: Vec3 = flip * cam_pos;
 
             images.push(ColmapImage {
                 camera_id,
                 image_path,
                 camera_orientation,
-                camera_pos,
-                tx,
-                ty,
-                tz
+                camera_pos
             });
         }
 
@@ -158,7 +150,7 @@ impl ColmapScene {
             let track_len: u64 = u64::from_le_bytes(*(p_header_buf[43..51].as_array().unwrap()));
 
             let mut phony_buf: Vec<u8> = vec![0u8; (track_len as usize)*8];
-            p_reader.read_exact(&mut phony_buf);
+            p_reader.read_exact(&mut phony_buf).unwrap();
 
             let p: Vec3 = Vec3::new(x as f32, y as f32, z as f32);
             let p_gl: Vec3 = flip * p;
