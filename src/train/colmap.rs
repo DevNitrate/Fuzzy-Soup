@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, fs::File, io::{BufRead, BufReader, Read}, path::{Path, PathBuf}};
+use std::{f32::{consts::PI}, fs::File, io::{BufRead, BufReader, Read}, path::{Path, PathBuf}};
 
 use bevy::{math::{Quat, Vec3}};
 
@@ -24,9 +24,7 @@ pub struct ColmapImage {
 
 #[derive(Debug)]
 pub struct ColmapPoint {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64
+    pub pos: Vec3
 }
 
 pub struct ColmapScene {
@@ -63,7 +61,7 @@ impl ColmapScene {
             let cy: f64 = f64::from_le_bytes(*(cam_buf[48..56].as_array().unwrap()));
 
             if model_id != 1 {
-                panic!("cameras.bin must contain only pinhole cameras. consider undistorting the images")
+                panic!("cameras.bin must contain only PINHOLE cameras. consider undistorting the images")
             }
 
             cameras.push(ColmapCamera {
@@ -131,6 +129,22 @@ impl ColmapScene {
             });
         }
 
+        let mut min: Vec3 = Vec3::splat(f32::INFINITY);
+        let mut max: Vec3 = Vec3::splat(f32::NEG_INFINITY);
+
+        for img in &images {
+            min = min.min(img.camera_pos);
+            max = max.max(img.camera_pos);
+        }
+
+        let center: Vec3 = (min + max) * 0.5;
+
+        let radius: f32 = images.iter().map(|img| (img.camera_pos - center).length()).fold(0.0f32, f32::max);
+
+        for img in &mut images {
+            img.camera_pos = (img.camera_pos - center) / radius;
+        }
+
         let f_p: File = File::open(sparse_path.join("points3D.bin")).unwrap();
         let mut p_reader = BufReader::new(f_p);
 
@@ -152,13 +166,14 @@ impl ColmapScene {
             let mut phony_buf: Vec<u8> = vec![0u8; (track_len as usize)*8];
             p_reader.read_exact(&mut phony_buf).unwrap();
 
-            let p: Vec3 = Vec3::new(x as f32, y as f32, z as f32);
-            let p_gl: Vec3 = flip * p;
+            let xn: f32 = ((x - center.x as f64) / radius as f64) as f32;
+            let yn: f32 = ((-y - center.y as f64) / radius as f64) as f32;
+            let zn: f32 = ((-z - center.z as f64) / radius as f64) as f32;
+
+            let pos: Vec3 = Vec3::new(xn, yn, zn);
 
             points.push(ColmapPoint {
-                x: p_gl.x as f64,
-                y: p_gl.y as f64,
-                z: p_gl.z as f64
+                pos
             });
         }
 
